@@ -1,50 +1,90 @@
-async function wipeSkills() {
-    let editLinks = Array.from(document.querySelectorAll('a[href*="/details/skills/edit/forms/"]'));
-    
-    if (editLinks.length === 0) {
-        console.log("No edit links found. Please ensure you are scrolled to the bottom of the skills list.");
-        return;
+(async function () {
+    var POLL = 40;      // ms between checks
+    var TIMEOUT = 6000; // give up on a single stuck step after this
+
+    function visible(el) { return el && el.offsetParent !== null; }
+
+    function btnByText(txt) {
+        return Array.prototype.slice.call(document.querySelectorAll('button'))
+            .find(function (b) { return visible(b) && b.innerText.trim() === txt; });
     }
 
-    console.log(`Found ${editLinks.length} skills. Starting double-deletion sequence...`);
+    function countLinks() {
+        return document.querySelectorAll('a[href*="/details/skills/edit/forms/"]').length;
+    }
 
-    for (let i = 0; i < editLinks.length; i++) {
-        console.log(`Processing ${i + 1} of ${editLinks.length}...`);
-        
-        // 1. Click the specific skill's Edit anchor tag
-        editLinks[i].click();
-        await new Promise(r => setTimeout(r, 1500)); // Wait for first modal
-        
-        // 2. Find and click the initial "Delete skill" button
-        let firstDeleteBtn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Delete skill'));
-        
-        if (firstDeleteBtn) {
-            firstDeleteBtn.click();
-            await new Promise(r => setTimeout(r, 1500)); // Wait for the confirmation pop-up to render
-            
-            // 3. Find and click the final "Delete" confirmation button
-            // We filter for buttons that say exactly 'Delete' and ensure they are actually visible on screen
-            let confirmBtns = Array.from(document.querySelectorAll('button')).filter(b => b.innerText.trim() === 'Delete');
-            let finalDeleteBtn = confirmBtns.find(b => b.offsetParent !== null); // Checks if the element is currently visible
-            
-            if (finalDeleteBtn) {
-                finalDeleteBtn.click();
-                console.log(`Successfully deleted skill ${i + 1}.`);
-                await new Promise(r => setTimeout(r, 2000)); // Wait for API response and UI reset
-            } else {
-                console.log(`Found first delete, but could not find confirmation button for skill ${i + 1}.`);
-                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); // Try to back out
-                await new Promise(r => setTimeout(r, 1000));
-            }
-        } else {
-            console.log(`Could not find the initial 'Delete skill' button for skill ${i + 1}.`);
-            // Press 'Escape' to dismiss the modal so the loop can safely try the next one
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-            await new Promise(r => setTimeout(r, 1000));
+    // Dismiss any Premium / upsell dialog. Returns true if it closed one.
+    function closeUpsell() {
+        var dialogs = document.querySelectorAll('[role="dialog"], .artdeco-modal');
+        for (var i = 0; i < dialogs.length; i++) {
+            var d = dialogs[i];
+            if (!visible(d)) continue;
+            if (!/premium|try it free|free trial|on a roll/i.test(d.innerText)) continue;
+            var x = d.querySelector('button[aria-label*="Dismiss" i], button[aria-label*="Close" i]');
+            if (x) { x.click(); return true; }
+            var nt = Array.prototype.slice.call(d.queryS
+                .find(function (b) { return /no thanks|not now|maybe later|skip|dismiss/i.test(b.innerText); });
+            if (nt) { nt.click(); return true; }
         }
+        return false;
     }
-    console.log("Skill purge complete. The slate is clean.");
-}
 
-// Execute the function
-wipeSkills();
+    function waitFor(getter) {
+        return new Promise(function (resolve, reject) {
+            var start = Date.now();
+            (function poll() {
+                closeUpsell();                 // clear popups on every tick
+                var el;
+                try { el = getter(); } catch (e) {}
+                if (el) return resolve(el);
+                if (Date.now() - start > TIMEOUT) return reject(new Error("timeout"));
+                setTimeout(poll, POLL);
+            })();
+        });
+    }
+
+    // Background janitor: nuke upsells even between steps
+    var janitor = setInterval(closeUpsell, 100);
+
+    var deleted = 0, stalls = 0;
+    console.log("Starting skill purge...");
+
+    try {
+        while (true) {
+            var before = countLinks();
+            var editLink = document.querySelector('a[href*="/details/skills/edit/forms/"]');
+            if (!editLink) {
+                console.log("Done. Deleted " + deleted + " skill(s). None left.");
+                break;
+            }
+
+            console.log("Deleting #" + (deleted + 1) + " (" + before + " left)...");
+            editLink.click();
+
+            try {
+                (await waitFor(function () { return btnByText('Delete skill'); })).click();
+                (await waitFor(function () { return btnByText('Delete'); })).click();
+                await waitFor(function () { return count
+                deleted++;
+                stalls = 0;
+                console.log("Deleted #" + deleted + ".");
+            } catch (e) {
+                // Interrupted (upsell, slow render, or throttling). Back off and keep going.
+                closeUpsell();
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+                stalls++;
+                var pause = Math.min(3000, 400 * stalls);
+                console.log("Stall " + stalls + " (" + eause + "ms and continuing.");
+                await new Promise(function (r) { setTimeout(r, pause); });
+                if (stalls >= 8) {
+                    console.log("8 stalls in a row — likely rate-limited. Stopping; re-run later to finish.");
+                    break;
+                }
+            }
+        }
+    } finally {
+        clearInterval(janitor); // always shut off the background timer
+    }
+
+    console.log("Total deleted this run: " + deleted + ".");
+})();
