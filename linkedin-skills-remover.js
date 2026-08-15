@@ -9,8 +9,19 @@
             .find(function (b) { return visible(b) && b.innerText.trim() === txt; });
     }
 
+    // Only real "Edit X skill" links — filters out lookalikes like "Add section"
+    // whose href can momentarily match the loose /edit/forms/ substring check.
+    function skillEditLinks() {
+        return Array.prototype.slice.call(
+            document.querySelectorAll('a[href*="/details/skills/edit/forms/"]')
+        ).filter(function (a) {
+            var label = (a.getAttribute('aria-label') || '').trim();
+            return visible(a) && /^edit .+ skill$/i.test(label);
+        });
+    }
+
     function countLinks() {
-        return document.querySelectorAll('a[href*="/details/skills/edit/forms/"]').length;
+        return skillEditLinks().length;
     }
 
     // Dismiss any Premium / upsell dialog. Returns true if it closed one.
@@ -22,7 +33,7 @@
             if (!/premium|try it free|free trial|on a roll/i.test(d.innerText)) continue;
             var x = d.querySelector('button[aria-label*="Dismiss" i], button[aria-label*="Close" i]');
             if (x) { x.click(); return true; }
-            var nt = Array.prototype.slice.call(d.queryS
+            var nt = Array.prototype.slice.call(d.querySelectorAll('button'))
                 .find(function (b) { return /no thanks|not now|maybe later|skip|dismiss/i.test(b.innerText); });
             if (nt) { nt.click(); return true; }
         }
@@ -52,7 +63,7 @@
     try {
         while (true) {
             var before = countLinks();
-            var editLink = document.querySelector('a[href*="/details/skills/edit/forms/"]');
+            var editLink = skillEditLinks()[0];
             if (!editLink) {
                 console.log("Done. Deleted " + deleted + " skill(s). None left.");
                 break;
@@ -64,7 +75,7 @@
             try {
                 (await waitFor(function () { return btnByText('Delete skill'); })).click();
                 (await waitFor(function () { return btnByText('Delete'); })).click();
-                await waitFor(function () { return count
+                await waitFor(function () { return countLinks() < before; });
                 deleted++;
                 stalls = 0;
                 console.log("Deleted #" + deleted + ".");
@@ -74,7 +85,7 @@
                 document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
                 stalls++;
                 var pause = Math.min(3000, 400 * stalls);
-                console.log("Stall " + stalls + " (" + eause + "ms and continuing.");
+                console.log("Stall " + stalls + " — waiting " + pause + "ms and continuing.");
                 await new Promise(function (r) { setTimeout(r, pause); });
                 if (stalls >= 8) {
                     console.log("8 stalls in a row — likely rate-limited. Stopping; re-run later to finish.");
