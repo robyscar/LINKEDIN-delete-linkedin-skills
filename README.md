@@ -14,10 +14,10 @@ Use the scripts provided here to delete posts, comments and likes:
 2. go to the correct Linkedin skills removal (see below);
 3. open the browser's JavaScript console;
 4. type in console `allow pasting` and hit **enter**. 
-5. paste the [`corresponding script`](https://cdn.jsdelivr.net/gh/hv33y/delete-linkedin-skills@master/linkedin-skills-remover.js) in the JavaScript console;
+5. paste the [`corresponding script`](https://raw.githubusercontent.com/hv33y/delete-linkedin-skills/refs/heads/master/linkedin-skills-remover.js) in the JavaScript console;
 6. execute it!
 
-Use [`linkedin-skills-remover.js`](https://cdn.jsdelivr.net/gh/hv33y/delete-linkedin-skills@master/linkedin-skills-remover.js) to delete all posts authored by you. Open your browser and go to _Me >> Scroll Down > Show all skills_ (or [`https://www.linkedin.com/in/{username}/details/skills/`](https://www.linkedin.com/in/me/details/skills/)) and execute the script from the JavaScript console.
+Use [`linkedin-skills-remover.js`](https://raw.githubusercontent.com/hv33y/delete-linkedin-skills/refs/heads/master/linkedin-skills-remover.js) to delete all posts authored by you. Open your browser and go to _Me >> Scroll Down > Show all skills_ (or [`https://www.linkedin.com/in/{username}/details/skills/`](https://www.linkedin.com/in/me/details/skills/)) and execute the script from the JavaScript console.
 
 Bam! New Linkedin, new life.
 
